@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>Island Maker</title>
+  <link rel="stylesheet" href="./style.css">
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<html>
+
+<head>
+  <title></title>
+</head>
+
+<body>
+  <canvas></canvas>
+  <script type="text/javascript">
+    var animated = prompt("Enable resources?")
+    var game = document.querySelector("canvas")
+    game.width = 2000
+    game.height = 2000
+    var ctx = game.getContext("2d")
+    const data = {
+      "land": {
+        prob: 0.4,
+        tiles: {
+          "_": [9, 1]
+        },
+        fill: "silver"
+      },
+      "wood": {
+        prob: 0.3,
+        tiles: {
+          "_": [1, 5],
+          "_n": [1, 4],
+          "_s": [1, 6],
+          "_w": [0, 5],
+          "_e": [2, 5],
+          "_nw": [0, 4],
+          "_ne": [2, 4],
+          "_sw": [0, 6],
+          "_se": [2, 6]
+        },
+        fill: "green"
+      },
+      "mountain": {
+        prob: 0.3,
+        tiles: {
+          "_": [5, 1],
+          "_n": [5, 0],
+          "_s": [5, 2],
+          "_w": [4, 1],
+          "_e": [6, 1],
+          "_nw": [4, 0],
+          "_ne": [6, 0],
+          "_sw": [4, 2],
+          "_se": [6, 2]
+        },
+        fill: "grey"
+      },
+      "water": {
+        prob: 0,
+        tiles: {
+          "_": [13, 2],
+          "_n": [13, 1],
+          "_s": [13, 3],
+          "_w": [12, 2],
+          "_e": [14, 2],
+          "_nw": [12, 1],
+          "_ne": [14, 1],
+          "_sw": [12, 3],
+          "_se": [14, 3]
+        },
+        fill: "blue"
+      },
+    }
+
+    function getProb(data, x, y) {
+      let dist = Math.hypot(mapW / 2 - x, mapH / 2 - y)
+      let sum = 0
+      let res = []
+      for (let type in data) {
+        sum += Math.max(0, data[type].prob * (1 - 4 * dist / (mapW + mapH)))
+        res.push({
+          type: type,
+          prob: sum
+        })
+      }
+      return res
+    }
+    const mapW = 60,
+      mapH = 60,
+      iterations = 4
+    let map = []
+    let grid = []
+    const tileW = 16,
+      tileH = 16
+    var tileset = new Image()
+    tileset.src = "https://www.dropbox.com/s/iicv79h1a34yg78/maptiles.png?dl=1"
+    tileset.onload = generate
+    tileset.onerror = function() {
+      alert("Unable to load resources!")
+    }
+
+    function generate() {
+      for (let i = 0; i < iterations; i++) {
+        map[i] = []
+        for (let y = 0; y < mapH; y++) {
+          map[i][y] = []
+          for (let x = 0; x < mapW; x++) {
+            if (i == 0) {
+              let num = Math.random()
+              let list = getProb(data, x, y)
+              let j = 0
+              while (j < list.length - 1 && num > list[j].prob) {
+                j++
+              }
+              map[i][y][x] = list[j].type
+            } else {
+              let nb = []
+              if (y > 0) {
+                nb.push(map[i - 1][y - 1][x])
+                nb.push(map[i - 1][y - 1][x])
+              }
+              if (y < mapH - 1) {
+                nb.push(map[i - 1][y + 1][x])
+                nb.push(map[i - 1][y + 1][x])
+              }
+              if (x > 0) {
+                nb.push(map[i - 1][y][x - 1])
+                nb.push(map[i - 1][y][x - 1])
+              }
+              if (x < mapW - 1) {
+                nb.push(map[i - 1][y][x + 1])
+                nb.push(map[i - 1][y][x + 1])
+              }
+              if (y > 0 && x > 0) nb.push(map[i - 1][y - 1][x - 1])
+              if (y < mapH - 1 && x < mapW - 1) nb.push(map[i - 1][y + 1][x + 1])
+              if (x > 0 && y < mapH - 1) nb.push(map[i - 1][y + 1][x - 1])
+              if (x < mapW - 1 && y > 0) nb.push(map[i - 1][y - 1][x + 1])
+              let list = mode(nb)
+              map[i][y][x] = list[rand(0, list.length - 1)]
+            }
+          }
+        }
+      }
+      for (let y = 0; y < mapH * 2; y++) {
+        grid[y] = []
+        for (let x = 0; x < mapW * 2; x++) {
+          grid[y][x] = map[iterations - 1][Math.floor(y / 2)][Math.floor(x / 2)]
+        }
+      }
+      for (let y = 0; y < mapH * 2; y++) {
+        for (let x = 0; x < mapW * 2; x++) {
+          let border = "_"
+          if (grid[y][x] != "land") {
+            if (y > 0 && grid[y][x] != grid[y - 1][x]) {
+              border += "n"
+            } else if (y < mapH * 2 - 1 && grid[y][x] != grid[y + 1][x]) {
+              border += "s"
+            }
+            if (x > 0 && grid[y][x] != grid[y][x - 1]) {
+              border += "w"
+            } else if (x < mapW * 2 - 1 && grid[y][x] != grid[y][x + 1]) {
+              border += "e"
+            }
+          }
+          ctx.fillStyle = data[grid[y][x]].fill
+          ctx.fillRect(tileW * x, tileH * y, tileW, tileH)
+          if (animated) {
+            ctx.drawImage(tileset, tileW * data["land"].tiles["_"][0], tileH * data["land"].tiles["_"][1], tileW, tileH, tileW * x, tileH * y, tileW, tileH)
+            tile = data[grid[y][x]].tiles[border]
+            ctx.drawImage(tileset, tileW * tile[0], tileH * tile[1], tileW, tileH, tileW * x, tileH * y, tileW, tileH)
+          }
+        }
+      }
+    }
+
+    function mode(arr) {
+      let counter = {}
+      for (let i = 0; i < arr.length; i++) {
+        if (typeof counter[arr[i]] == "undefined") counter[arr[i]] = 0
+        counter[arr[i]]++
+      }
+      let count = 0
+      let max = []
+      for (let name in counter) {
+        if (counter[name] > count) {
+          count = counter[name]
+          max = [name]
+        } else if (counter[name] == count) {
+          max.push(name)
+        }
+      }
+      return max
+    }
+
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1) + min)
+    }
+  </script>
+</body>
+
+</html>
+<!-- partial -->
+  
+</body>
+</html>
